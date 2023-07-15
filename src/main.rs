@@ -26,7 +26,8 @@ mod file_manager {
 
 #[tokio::main]
 async fn main() {
-    let base_dir = env::var("UPLOAD_BASE_DIR").unwrap_or("./example_data/".to_string());
+    let base_dir_val = env::var("UPLOAD_BASE_DIR");
+    let base_dir = base_dir_val.as_deref().unwrap_or("./example_data/");
     eprintln!("Serving files from `{}`", base_dir);
 
     let address = SocketAddr::from(([127, 0, 0, 1], 3000));
