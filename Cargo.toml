@@ -4,5 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.6.18"
-tokio = { version = "1.29.0", features = ["full"] }
+axum = { version = "0.6", features = ["multipart"] }
+axum_typed_multipart = "0.5"
+ctr = "0.9.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+
+[dev-dependencies]
+anyhow = "1"
+httpc-test = "0.1"
