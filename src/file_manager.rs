@@ -9,13 +9,13 @@ use tokio::sync::Mutex;
 
 #[derive(Clone, FromRef)]
 pub struct FileManager {
-    base_dir: Arc<Mutex<PathBuf>>
+    base_dir: Arc<Mutex<PathBuf>>,
 }
 
 impl FileManager {
     pub fn new(base_dir: impl AsRef<Path>) -> Self {
         FileManager {
-            base_dir: Arc::new(Mutex::new(base_dir.as_ref().to_path_buf()))
+            base_dir: Arc::new(Mutex::new(base_dir.as_ref().to_path_buf())),
         }
     }
 

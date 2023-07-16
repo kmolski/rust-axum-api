@@ -1,17 +1,16 @@
 use std::env;
 use std::net::SocketAddr;
 
-use axum::{Router, Server};
 use axum::extract::DefaultBodyLimit;
 use axum::routing::get;
+use axum::{Router, Server};
 
 use crate::controller::*;
 use crate::file_manager::*;
 
 mod controller;
+mod crypto;
 mod file_manager;
-
-mod crypto {}
 
 #[tokio::main]
 async fn main() {
