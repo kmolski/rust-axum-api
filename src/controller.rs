@@ -1,15 +1,15 @@
 #![allow(non_snake_case)]
 
+use axum::{Router, routing::post};
 use axum::body::StreamBody;
-use axum::extract::{Json, Multipart};
+use axum::extract::{Json, Multipart, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::{routing::post, Router};
 use axum_typed_multipart::{TryFromMultipart, TypedMultipart};
 use serde::Serialize;
-use std::path::PathBuf;
-use tokio::io::AsyncWriteExt;
 use tokio_util::io::ReaderStream;
+
+use crate::file_manager::FileManager;
 
 #[derive(TryFromMultipart)]
 struct DownloadRequest {
@@ -31,35 +31,36 @@ struct UploadResponse<'a> {
     data: UploadData,
 }
 
-async fn download_file(TypedMultipart(body): TypedMultipart<DownloadRequest>) -> impl IntoResponse {
-    let mut path = PathBuf::from("./example_data/");
-    path.push(&body.fileName);
+async fn download_file(
+    State(file_manager): State<FileManager>,
+    TypedMultipart(body): TypedMultipart<DownloadRequest>
+) -> impl IntoResponse {
 
-    let Ok(file) = tokio::fs::File::open(path).await else {
+    let Ok(file) = file_manager.open_file(&body.fileName).await else {
         return Err((StatusCode::NOT_FOUND, format!("File not found: {}", body.fileName)));
     };
+
     let stream = ReaderStream::new(file);
     let body = StreamBody::new(stream);
     Ok(body)
 }
 
-async fn upload_file(mut body: Multipart) -> impl IntoResponse {
+async fn upload_file(
+    State(file_manager): State<FileManager>,
+    mut body: Multipart
+) -> impl IntoResponse {
+
     while let Some(field) = body.next_field().await.unwrap() {
         if !field.name().is_some_and(|n| n == "file") {
             continue;
         }
 
         let name = field.file_name().unwrap().to_string();
-        let mut path = PathBuf::from("./example_data/");
-        path.push(&name);
-
-        let Ok(mut file) = tokio::fs::File::create(path).await else {
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, "Could not create file"));
-        };
-
         let content_type = field.content_type().unwrap().to_string();
         let data = field.bytes().await.unwrap();
-        file.write_all(&data).await.unwrap();
+        if file_manager.save_file(&name, &data).await.is_err() {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "Could not create file"));
+        }
 
         return Ok(Json(UploadResponse {
             status: true,
@@ -79,20 +80,58 @@ async fn upload_file(mut body: Multipart) -> impl IntoResponse {
     ))
 }
 
-pub fn routes_streaming_encryption() -> Router {
+async fn encrypt_sync(
+    State(file_manager): State<FileManager>,
+    mut body: Multipart
+) -> impl IntoResponse {
+
+    while let Some(field) = body.next_field().await.unwrap() {
+        if !field.name().is_some_and(|n| n == "file") {
+            continue;
+        }
+
+        let name = field.file_name().unwrap().to_string();
+        let content_type = field.content_type().unwrap().to_string();
+        let data = field.bytes().await.unwrap();
+        if let Err(_) = file_manager.save_file(&name, &data).await {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "Could not create file"));
+        }
+
+        return Ok(Json(UploadResponse {
+            status: true,
+            message: "File is uploaded",
+            data: UploadData {
+                name,
+                mimetype: content_type,
+                size: data.len(),
+                time: 0,
+            },
+        }));
+    }
+
+    Err((
+        StatusCode::BAD_REQUEST,
+        "Multipart must contain a `file` field",
+    ))
+}
+
+pub fn routes_streaming_encryption(file_manager: FileManager) -> Router {
     Router::new()
     //.route("/upload/encryption-stream", post(upload_encrypted_streaming))
     //.route("/upload/decryption-stream", post(download_encrypted_streaming))
+    //.with_state(file_manager)
 }
 
-pub fn routes_sync_encryption() -> Router {
+pub fn routes_sync_encryption(file_manager: FileManager) -> Router {
     Router::new()
-    //.route("/upload/encryption", post(upload_encrypted))
-    //.route("/upload/decryption", post(download_encrypted))
+        .route("/upload/encryption", post(encrypt_sync))
+        //.route("/upload/decryption", post(decrypt_sync))
+        .with_state(file_manager)
 }
 
-pub fn routes_no_encryption() -> Router {
+pub fn routes_no_encryption(file_manager: FileManager) -> Router {
     Router::new()
         .route("/upload/no-encryption", post(upload_file))
         .route("/download", post(download_file))
+        .with_state(file_manager)
 }

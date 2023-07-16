@@ -1,28 +1,17 @@
-mod controller;
-
 use std::env;
 use std::net::SocketAddr;
 
-use crate::controller::*;
+use axum::{Router, Server};
 use axum::extract::DefaultBodyLimit;
 use axum::routing::get;
-use axum::{Router, Server};
+
+use crate::controller::*;
+use crate::file_manager::*;
+
+mod controller;
+mod file_manager;
 
 mod crypto {}
-
-mod file_manager {
-    use std::path::Path;
-
-    trait FileStore {}
-
-    trait FileLoad {}
-
-    struct FileManager {
-        base_dir: Path,
-    }
-
-    impl FileManager {}
-}
 
 #[tokio::main]
 async fn main() {
@@ -33,10 +22,11 @@ async fn main() {
     let address = SocketAddr::from(([127, 0, 0, 1], 3000));
     eprintln!("Example app listening on port {}", address.port());
 
+    let file_manager = FileManager::new(base_dir);
     let router = Router::new()
-        .merge(routes_streaming_encryption())
-        .merge(routes_sync_encryption())
-        .merge(routes_no_encryption())
+        .merge(routes_streaming_encryption(file_manager.clone()))
+        .merge(routes_sync_encryption(file_manager.clone()))
+        .merge(routes_no_encryption(file_manager.clone()))
         .route("/", get(|| async { "Hello World!" }))
         .layer(DefaultBodyLimit::max(1024_usize.pow(3))); // 1 gigabyte
     Server::bind(&address)
