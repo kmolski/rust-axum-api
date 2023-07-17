@@ -58,7 +58,7 @@ pub struct UploadData {
 impl UploadData {
     pub fn from_file(file: FieldMetadata, size: usize) -> UploadData {
         UploadData {
-            name: file.name.unwrap(),
+            name: file.file_name.unwrap(),
             mimetype: file.content_type.unwrap(),
             time: 0,
             size,

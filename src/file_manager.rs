@@ -1,13 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use axum::extract::FromRef;
 use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
-#[derive(Clone, FromRef)]
+#[derive(Clone)]
 pub struct FileManager {
     base_dir: Arc<Mutex<PathBuf>>,
 }
